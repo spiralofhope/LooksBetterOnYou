@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r3 | msaint | 2012-03-11 03:01:54 +0000 (Sun, 11 Mar 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+
+Cosmetic fixes
+------------------------------------------------------------------------
 r2 | msaint | 2012-03-11 03:00:12 +0000 (Sun, 11 Mar 2012) | 1 line
 Changed paths:
    A /trunk/LooksBetterOnYou.lua

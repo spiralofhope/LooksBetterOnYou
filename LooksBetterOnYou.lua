@@ -1,12 +1,12 @@
--- Project: Looks Better On You r2
+-- Project: Looks Better On You r3
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-11T03:00:12Z
+-- Last Modified: 2012-03-11T03:01:54Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r2", "([%d\.]+)")
+local OUR_VERSION = string.match("r3", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage(s, 1, 0, 0) end or function() return end  
@@ -72,7 +72,6 @@ local eFrame
 local lbDB, playerDB
 
 -- **Local functions
-
 local function chatMsg(s, r, g, b)
    DEFAULT_CHAT_FRAME:AddMessage(s, r, g, b)
 end
@@ -92,7 +91,7 @@ local function freshenItemData()
 end
 
 local function listSavedAlts()
--- Lists alts on this realm for which BagBrother has data
+-- Lists alts on this realm for which we have data
    for realm, realmDB in pairs(lbDB) do
       for name, info in pairs(realmDB) do
          chatMsg(realm.."."..name..", "..info.race..", "..info.sex)
