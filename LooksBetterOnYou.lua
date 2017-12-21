@@ -1,6 +1,6 @@
--- Project: Looks Better On You 1.11-beta
+-- Project: Looks Better On You r22
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-26T02:20:28Z
+-- Last Modified: 2012-03-29T18:43:43Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 -- Acknowledgements: Thanks to a particular pal for pushing me to write this.
@@ -653,7 +653,7 @@ do
          end
       end
    end
-   events.CancelTimedCallback = CancelTriggeredCallback
+   events.CancelTimedCallback = events.CancelTriggeredCallback
    
    --Since the handlers are on the 'events' object, lets make registering intuitive
    function events:RegisterEvent(...)
