@@ -28,7 +28,7 @@ local math, string, strsplit, table, tinsert = math, string, strsplit, table, ti
 
 -- **Local references to API functions and globals
 local GetRealmName, UnitName, UnitRace, UnitSex, UnitClass = GetRealmName, UnitName, UnitRace, UnitSex, UnitClass
-local GetTransmogrifySlotInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem = GetTransmogrifySlotInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem
+local GetItemTransmogrifyInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem = GetItemTransmogrifyInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem
 local UIDropDownMenu_Initialize, UIDropDownMenu_AddButton, ToggleDropDownMenu, ShowUIPanel = UIDropDownMenu_Initialize, UIDropDownMenu_AddButton, ToggleDropDownMenu, ShowUIPanel
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local hooksecurefunc = hooksecurefunc
@@ -724,7 +724,7 @@ function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
          --GetInventoryItemID above is used to guarantee that item data is there.
          --GetTransmogrigySlotInfo will crash WoW in Mac and 64-bit Windows
          --clients if called before item data is available. 
-            playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
+            playerDB.equip[i] = (select(6, GetItemTransmogrifyInfo(i)))
          elseif not (slot and hasItem) then
             playerDB.equip[i] = nil
          end

@@ -3,6 +3,16 @@
 `git log` is another good way to peer into the innards of this repository.
 
 
+## 6.0 series
+
+### 6.2.4
+
+I have files dated 2016-07-25, so this version number is a guess.
+
+- Simple bug fixes for compatibility.
+
+
+
 # msaint's revisions
 
 ## 4.3.3
