@@ -1,6 +1,6 @@
--- Project: Looks Better On You 1.09-beta
+-- Project: Looks Better On You r18
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-18T05:32:23Z
+-- Last Modified: 2012-03-26T01:21:16Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
@@ -19,7 +19,7 @@ setmetatable( L, { __index = function(t, text) return text end })
 
 
 --
--- *************** UPVALUES ***************
+-- *********** LOCAL REFERENCES ***********
 -- ****************************************
 
 -- **Local references to library functions
@@ -52,7 +52,37 @@ local raceID = {
    BLOODELF = 10,
    DRAENEI = 11,
    WORGEN = 22,
-   }
+}
+
+local menuModelNames = {
+   HUMAN = "Human",
+	ORC = "Orc",
+	DWARF = "Dwarf",
+	NIGHTELF = "Nightelf",
+	SCOURGE = "Undead",
+	TAUREN = "Tauren",
+	GNOME = "Gnome",
+	TROLL = "Troll",
+	GOBLIN = "Goblin",
+	BLOODELF = "Bloodelf",
+	DRAENEI = "Draenei",
+	WORGEN = "Worgen",
+}
+
+local alphaOrderedRaces = {
+   "BLOODELF",
+   "DRAENEI",
+   "DWARF",
+   "GNOME",
+   "GOBLIN",
+   "HUMAN",
+   "NIGHTELF",
+   "ORC",
+   "TAUREN",
+   "TROLL",
+   "SCOURGE", --Undead, so 'U'
+   "WORGEN",
+}
 
 local transmogInvSlots = {
    INVSLOT_HEAD,
@@ -103,6 +133,7 @@ local lbIsTryingOn = nil --Used to prevent a loop when hooking DressUpModel:TryO
 -- *********** LOCAL FUNCTIONS ************
 -- ****************************************
 
+
 -- **Miscellaneous
 --
 local function chatMsg(s, r, g, b)
@@ -114,6 +145,24 @@ end
 --
 local function altIsPlayer()
    return currentAlt.name == UnitName("player") and currentAlt.realm == GetRealmName()
+end
+
+local function setGenericAlt(race, sex)
+   local name = menuModelNames[race] .. (((sex==2) and " Male") or ((sex==3) and " Female")) 
+   currentAlt.name = name 
+   currentAlt.realm = "GENERIC"
+   currentAlt.info = {race = race, sex = sex, class = "WARRIOR", equip = {}}
+   if lbSideButton:IsVisible() then 
+      lbSideButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
+      lbSideButton:SetChecked(not altIsPlayer())
+      lbSideName:SetText(name)
+   end
+   if lbTopButton:IsVisible() then
+      lbTopButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
+      lbTopButton:SetChecked(not altIsPlayer())
+      lbTopName:SetText(name)
+   end
+   return name, realm
 end
 
 local function setCurrentAlt(name, realm)
@@ -139,6 +188,7 @@ local function setCurrentAlt(name, realm)
    if alt and alt.race and alt.sex then
       currentAlt.name = name
       currentAlt.realm = realm
+      currentAlt.info = alt
       if lbSideButton:IsVisible() then 
          lbSideButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
          lbSideButton:SetChecked(not altIsPlayer())
@@ -200,8 +250,7 @@ end
 --
 
 local function loadAltDressup()
-   local name, realm = currentAlt.name, currentAlt.realm
-   local alt = lbDB and lbDB[realm] and lbDB[realm][name] or nil
+   local alt = currentAlt.info
    if alt and alt.race and alt.sex then
       lbIsTryingOn = true --Prevent a loop in hooked TryOn function
       for _, model in pairs({DressUpModel, SideDressUpModel}) do
@@ -218,17 +267,22 @@ local function loadAltDressup()
                   end
                end
                --Model is very quirky when trying on weapons where the offhand 
-               --can be equipped in the main hand. To force the right weapon in
-               --as the mainhand, first try on a mainhand-only weapon.
+               --can be equipped in the main hand. To guarantee that the correct
+               --weapon goes in each hand, we have to first try on a main-hand-only
+               --weapon, then one that can go in either hand, then our OH, then
+               --our MH.
                 local mh, oh = alt.equip[INVSLOT_MAINHAND], alt.equip[INVSLOT_OFFHAND]
                 if IsEquippableItem(mh) then 
-                  model:TryOn("item:23556")
-                  model:TryOn("item:"..mh)
+                  model:TryOn("item:25318")
+                  model:TryOn("item:36497")
                 end
                 if IsEquippableItem(oh) then 
                   model:TryOn("item:"..oh)
                 end
-               --Special handling for hunters.
+                if IsEquippableItem(mh) then 
+                  model:TryOn("item:"..mh)
+                end
+               --Special handling for hunters - they should show ranged weapon by default.
                if alt.class == "HUNTER" and IsEquippableItem(alt.equip[INVSLOT_RANGED]) then
                   model:TryOn("item:"..alt.equip[INVSLOT_RANGED])
                end
@@ -300,52 +354,85 @@ local function rgbToStr(rgb)
    return string.format("|cff%.2x%.2x%.2x", r, g, b)
 end
 
-local function getMenuInfo(name, realm)
---UIDropDownMenu_AddButton needs a table with information about the entry
-   local db = lbDB[realm][name]
-   if db then
-      local classColor = rgbToStr(RAID_CLASS_COLORS[db.class]) 
-      local info = {
-         text = name,
-         value = realm.."."..name,
-         checked = ((name == currentAlt.name) and (realm == currentAlt.realm)),
-         colorCode = classColor, 
-         func = function(self, arg1, arg2)
-               setCurrentAlt(arg1, arg2)
-               loadAltDressup()   
-            end,
-         arg1 = name,
-         arg2 = realm,
-         }
+local function getGenericMenuInfo(race, sex)
+   if menuModelNames[race] and ((sex == 3) or (sex == 2)) then
+      local info = UIDropDownMenu_CreateInfo()
+      info.text = menuModelNames[race] .. (((sex==2) and " Male") or ((sex==3) and " Female"))
+      info.value = {race = race, sex = sex}
+      info.checked = (info.text == currentAlt.name) and (currentAlt.realm == "GENERIC")
+      info.arg1 = race
+      info.arg2 = sex
+      info.func = function(self, arg1, arg2)
+            setGenericAlt(arg1, arg2)
+            loadAltDressup()
+         end
       return info
    end
 end
 
-local function menuOnLoad()
---Populate the menu with class-colored alt names
-   local player, thisRealm = UnitName('player'), GetRealmName()
-   local realmInfo = {isTitle = true, notCheckable = true}
-      --Realm line for this realm
-   realmInfo.text = thisRealm
-   realmInfo.value = thisRealm
-   UIDropDownMenu_AddButton(realmInfo, 1)           
-      --Start with the player
-   UIDropDownMenu_AddButton(getMenuInfo(player, thisRealm), 1)
-      --Now other characters on the current realm
-   for name, _ in pairs(lbDB[thisRealm]) do
-      if not (name == player) then
-         UIDropDownMenu_AddButton(getMenuInfo(name, thisRealm), 1)
-      end
-   end
-      --Now all alts on other realms
-   for realm, realmDB in pairs(lbDB) do
-      if not (realm == thisRealm) then
-         realmInfo.text = realm
-         realmInfo.value = realm
-         UIDropDownMenu_AddButton(realmInfo, 1)           
-         for name, _ in pairs(realmDB) do
-            UIDropDownMenu_AddButton(getMenuInfo(name, realm), 1)
+local function getAltMenuInfo(name, realm)
+--UIDropDownMenu_AddButton needs a table with information about the entry
+   local db = lbDB[realm][name]
+   if db then
+      local classColor = rgbToStr(RAID_CLASS_COLORS[db.class]) 
+      local info = UIDropDownMenu_CreateInfo() 
+      info.text = name
+      info.value = realm.."."..name
+      info.checked = ((name == currentAlt.name) and (realm == currentAlt.realm))
+      info.colorCode = classColor 
+      info.func = function(self, arg1, arg2)
+            setCurrentAlt(arg1, arg2)
+            loadAltDressup()   
          end
+      info.arg1 = name
+      info.arg2 = realm
+      return info
+   end
+end
+
+local function menuOnLoad(f, level)
+--Load either the level one menu showing alts, or the level two menu
+--showing all generic models.
+   if level == 1 then
+      --Populate the menu with class-colored alt names
+      local player, thisRealm = UnitName('player'), GetRealmName()
+      local realmInfo = {isTitle = true, notCheckable = true}
+         --Realm line for this realm
+      realmInfo.text = thisRealm
+      realmInfo.value = thisRealm
+      UIDropDownMenu_AddButton(realmInfo, 1)           
+         --Start with the player
+      UIDropDownMenu_AddButton(getAltMenuInfo(player, thisRealm), 1)
+         --Now other characters on the current realm
+      for name, _ in pairs(lbDB[thisRealm]) do
+         if not (name == player) then
+            UIDropDownMenu_AddButton(getAltMenuInfo(name, thisRealm), 1)
+         end
+      end
+         --Now all alts on other realms
+      for realm, realmDB in pairs(lbDB) do
+         if not (realm == thisRealm) then
+            realmInfo.text = realm
+            realmInfo.value = realm
+            UIDropDownMenu_AddButton(realmInfo, 1)           
+            for name, _ in pairs(realmDB) do
+               UIDropDownMenu_AddButton(getAltMenuInfo(name, realm), 1)
+            end
+         end
+      end
+      do
+         --Add an entry to reach sub-menu with generic models
+         local info = UIDropDownMenu_CreateInfo()
+         info.text = "All Models"
+         info.value = "allModelsSubmenu"
+         info.hasArrow = true
+         info.notCheckable = true
+         UIDropDownMenu_AddButton(info, 1)
+      end      
+   elseif level == 2 then
+      for _, race in ipairs(alphaOrderedRaces) do
+         UIDropDownMenu_AddButton(getGenericMenuInfo(race, 3), 2)
+         UIDropDownMenu_AddButton(getGenericMenuInfo(race, 2), 2)
       end
    end
 end   
@@ -394,23 +481,24 @@ local function initDB()
    LooksBetterDB = lbDB
    lbDB[realm] = lbDB[realm] or {}
    lbDB[realm][player] = lbDB[realm][player] or {race=(select(2, UnitRace('player'))) , sex=UnitSex('player') , class=(select(2, UnitClass('player'))), equip={}}
-   playerDB = lbDB[realm][player] 
+   playerDB = lbDB[realm][player]
 end
 
 local function addonInit()
-      hooksecurefunc(DressUpModel, "SetUnit", onDress)
-      hooksecurefunc(DressUpModel, "Dress", onDress)
-      hooksecurefunc(DressUpModel, "TryOn", onTryOn)            
-      hooksecurefunc(SideDressUpModel, "SetUnit", onDress)
-      hooksecurefunc(SideDressUpModel, "Dress", onDress)
-      hooksecurefunc(SideDressUpModel, "TryOn", onTryOn)            
-      initDB() --Make sure our database is there and contains this character
-      initButton() --Attach our button to the dressup frame
-      initMenu() --Tell the client about our dropdown menu
-      freshenItemData() --Loads item data for everything our alts have equipped
-      SlashCmdList["LOOKSBETTER"] = slashCmdParser --Add Slash Commands
-      SLASH_LOOKSBETTER1 = "/lboy"
-      events:RegisterEvent('PLAYER_EQUIPMENT_CHANGED')
+   hooksecurefunc(DressUpModel, "SetUnit", onDress)
+   hooksecurefunc(DressUpModel, "Dress", onDress)
+   hooksecurefunc(DressUpModel, "TryOn", onTryOn)            
+   hooksecurefunc(SideDressUpModel, "SetUnit", onDress)
+   hooksecurefunc(SideDressUpModel, "Dress", onDress)
+   hooksecurefunc(SideDressUpModel, "TryOn", onTryOn)            
+   initDB() --Make sure our database is there and contains this character
+   initButton() --Attach our button to the dressup frame
+   initMenu() --Tell the client about our dropdown menu
+   freshenItemData() --Loads item data for everything our alts have equipped
+   events:SetTimedCallback(freshenItemData, 5) --We might be missing some data if the server gets fed up with us the first time through
+   SlashCmdList["LOOKSBETTER"] = slashCmdParser --Add Slash Commands
+   SLASH_LOOKSBETTER1 = "/lboy"
+   events:RegisterEvent('PLAYER_EQUIPMENT_CHANGED')
 end
                                                  
 
@@ -420,7 +508,7 @@ end
 
 function events:PLAYER_ENTERING_WORLD()
    addonInit() --Set up db and ui elements, cache item data, set hooks, set /cmd
-   events:SetTimedCallback(events.PLAYER_EQUIPMENT_CHANGED, 5)  --Trigger saving of equipped item information
+   events:SetTimedCallback(events.PLAYER_EQUIPMENT_CHANGED, 3)  --Trigger saving of equipped item information
    chatMsg(L["\"Looks Better On You!\" loaded."]) --Hello, world! ... or hello, player, anyhow
    chatMsg(L["  Click the tab at the top right of the Dressing Room to select and view Alts."])
    self:UnregisterEvent('PLAYER_ENTERING_WORLD')
@@ -429,9 +517,9 @@ end
 
 function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
 --Store any changes in this character's equipped items   
+   debug("Entered PLAYER_EQUIPMENT_CHANGED")
    --We do not actually track changes in helm/cloak visibility. We only check
    --here.
-   debug("Entered PLAYER_EQUIPMENT_CHANGED")
    local helm, cloak = ShowingHelm(), ShowingCloak() 
    if (playerDB.helm ~= helm) or (playerDB.cloak ~= cloak) then
       slot = nil --Force refresh of all items
@@ -441,8 +529,9 @@ function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
    for _, i in ipairs(transmogInvSlots) do
       --Store the item id for the visible item
       if (not slot) or (i == slot) and GetInventoryItemID("player", i) then
-         --Reason for GetInventoryItemID above is the GetTransmogrigySlotInfo
-         --WoW crash bug in Mac and 64-bit Windows clients 
+         --GetInventoryItemID above is used to guarantee that item data is there.
+         --GetTransmogrigySlotInfo will crash WoW in Mac and 64-bit Windows
+         --clients if called before item data is available. 
          playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
       end
    end
@@ -472,6 +561,8 @@ do
    eFrame:SetScript("OnEvent", function(self, event, ...)
          events[event](events, ...)
       end)
+   --We don't initialize with ADDON_LOADED because item data is not guaranteed
+   --to be available until PLAYER_ENTERING_WORLD fires. 
    eFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
    local function OnUpdate(self, elapsed)
@@ -493,6 +584,19 @@ do
    eFrame:SetScript("OnUpdate", OnUpdate)
    
    function events:SetTriggeredCallback(eName, check, action, data, repeating)
+   --This function is more generalized than needed in this addon at this time,
+   --but I have it written, the cost is not high, and it could be useful later.
+   --Params:
+   --    eName --A name for the event/callback.  If unique, can be used to cancel the event.
+   --    check --function(elapsed, data) used to check if a callback should trigger.
+   --    action --function(data) will be called back if check returns true.
+   --    data --arbitrary data to be passed to both check and action.
+   --    repeating --If true, the event/callback will not be removed when triggered
+   --          and until canceled will keep firing whenever check returns true.
+   --Returns:
+   --    handle --A unique identifier for this event/callback.  This should be used
+   --          when canceling an event, as this is more efficient than using the
+   --          event name.    
       debug("Entered SetTriggeredCallback")
       if (type(check) ~= "function" or type(action) ~= "function") then
          return
@@ -515,6 +619,7 @@ do
    end
 
    function events:SetTimedCallback(func, delay, data)
+   --A more convenient way to set a simple timed callback.
       local check = function(elapsed)
       	if (elapsed > delay) then
       		return true
@@ -524,6 +629,10 @@ do
    end
    
    function events:CancelTriggeredCallback(handle)
+   --Parameter can be the handle returned when creating the triggered event,
+   --or else the name given as the first parameter when creating the event.
+   --It is less efficient and more dangerous to use the name, as the table of
+   --callbacks must be searched, and the first matching event will be canceled.
       if (type(index) == "string") then
          -- What, you can't be bothered to store the index?
          for h, tEvent in pairs(callbacks) do
