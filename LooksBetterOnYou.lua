@@ -1,4 +1,4 @@
--- Project: Looks Better On You r16
+-- Project: Looks Better On You 1.09-beta
 -- File: LooksBetterOnYou.lua
 -- Last Modified: 2012-03-18T05:32:23Z
 -- Author: msaint
