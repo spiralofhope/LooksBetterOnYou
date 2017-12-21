@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r20 | msaint | 2012-03-26 02:20:28 +0000 (Mon, 26 Mar 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+
+Added an important acknowledgment in comments.
+------------------------------------------------------------------------
 r19 | msaint | 2012-03-26 02:16:41 +0000 (Mon, 26 Mar 2012) | 1 line
 Changed paths:
    M /trunk/LooksBetterOnYou.lua

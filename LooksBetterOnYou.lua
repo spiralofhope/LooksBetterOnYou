@@ -1,9 +1,9 @@
--- Project: Looks Better On You r19
+-- Project: Looks Better On You r20
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-26T02:16:41Z
+-- Last Modified: 2012-03-26T02:20:28Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
-
+-- Acknowledgements: Thanks to a particular pal for pushing me to write this.
 
 --
 -- ************* ADDON ADMIN **************
