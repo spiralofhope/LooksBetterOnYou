@@ -1,17 +1,17 @@
--- Project: Looks Better On You 1.03-beta
+-- Project: Looks Better On You r12
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-14T00:16:02Z
+-- Last Modified: 2012-03-15T01:46:35Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("1.03-beta", "([%d\.]+)")
+local OUR_VERSION = string.match("r12", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
 
--- **Constants -- Until Blizz changes them
+-- **Constants --Until Blizz changes them
 local raceID = {
    HUMAN = 1,
    ORC = 2,
@@ -47,7 +47,7 @@ local noTransmogInvSlots = {
    INVSLOT_TABARD,
 }
 
--- **Our Addon Object -- In this case, only used to avoid reloading same or older version
+-- **Our Addon Object --In this case, only used to avoid reloading same or older version
 if (LooksBetter and LooksBetter.Version and LooksBetter.Version >= OUR_VERSION) then return end
 LooksBetter = LooksBetter or {AddonName = OUR_NAME, Version = OUR_VERSION}
 
@@ -62,19 +62,18 @@ local UIDropDownMenu_Initialize, UIDropDownMenu_AddButton, ToggleDropDownMenu, S
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local hooksecurefunc = hooksecurefunc
 
--- **Set up for future localization -- not much to localize, though, I must say.
+-- **Set up for future localization --not much to localize, though, I must say.
 local L = LooksBetter.L or {}
 setmetatable( L, { __index = function(t, text) return text end })
 
 -- **Locals
 local events = {}
 local lbDB, playerDB
-local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
 local lbSideButton, lbSideName, lbTopButton, lbTopName, lbMenu
 local currentAlt = {realm = GetRealmName(), name = UnitName('player')}
-local tryOnList = {} -- Items currently being tried on in the Dressing Room
-local sideTryOnList = {} -- ^^ but for SideDressUpFrame
-local lbIsTryingOn = nil -- Used to prevent a loop when hooking DressUpModel:TryOn
+local tryOnList = {} --Items currently being tried on in the Dressing Room
+local sideTryOnList = {} --^^ but for SideDressUpFrame
+local lbIsTryingOn = nil --Used to prevent a loop when hooking DressUpModel:TryOn
 
 -- **Local functions
 local function chatMsg(s, r, g, b)
@@ -82,8 +81,8 @@ local function chatMsg(s, r, g, b)
 end
 
 local function freshenItemData()
--- Calling GetItemInfo fails at the time for uncached items, but triggers a 
--- request to the server. 
+--Calling GetItemInfo fails at the time for uncached items, but triggers a 
+--request to the server. 
    for realm, realmDB in pairs(lbDB) do
       for name, altinfo in pairs(realmDB) do
          debug(name, altinfo.race, altinfo.sex)
@@ -110,7 +109,7 @@ local function altIsPlayer()
 end
 
 local function listSavedAlts()
--- Lists alts on this realm for which we have data
+--Lists alts on this realm for which we have data
    for realm, realmDB in pairs(lbDB) do
       for name, info in pairs(realmDB) do
          chatMsg(realm.."."..name..", "..info.race..", "..info.sex)
@@ -126,7 +125,7 @@ local function setCurrentAlt(name, realm)
       if not name then
          name = realm
          realm = GetRealmName()
-         -- See if the name exists on the current realm, otherwise search for it.
+         --See if the name exists on the current realm, otherwise search for it.
          if not (lbDB[realm] and lbDB[realm][name]) then
             for realmname, realmDB in pairs(lbDB) do
                if realmDB[name] then
@@ -156,7 +155,7 @@ local function setCurrentAlt(name, realm)
 end
 
 local function slashCmdParser(name)
--- Leaving in slash command functionality for now, although it is not documented
+--Leaving in slash command functionality for now, although it is not documented
    if type(name) == "string" then
       if name == "list" then
          listSavedAlts()
@@ -188,15 +187,15 @@ local function loadAltDressup()
    local name, realm = currentAlt.name, currentAlt.realm
    local alt = lbDB and lbDB[realm] and lbDB[realm][name] or nil
    if alt and alt.race and alt.sex then
-      lbIsTryingOn = true -- Prevent a loop in hooked TryOn function
+      lbIsTryingOn = true --Prevent a loop in hooked TryOn function
       for _, model in pairs({DressUpModel, SideDressUpModel}) do
          if model:IsShown() then      
             if altIsPlayer() then
                model:Dress()
             else
                model:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
-               model:Undress() -- Must be after SetCustomRace
-               for _, item in pairs(alt.equip) do -- Load the alts visible items
+               model:Undress() --Must be after SetCustomRace
+               for _, item in pairs(alt.equip) do --Load the alts visible items
                   if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
                      --debug((GetItemInfo(item)))
                      model:TryOn("item:"..item)
@@ -204,7 +203,7 @@ local function loadAltDressup()
                end
             end
             local list = (model == DressUpModel) and tryOnList or sideTryOnList
-            for _, item in ipairs(list) do -- Load any items that have been ctr-clicked already
+            for _, item in ipairs(list) do --Load any items that have been ctr-clicked already
                if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
                   --debug((GetItemInfo(item)))
                   model:TryOn("item:"..item)
@@ -217,7 +216,7 @@ local function loadAltDressup()
 end
 
 local function onDress(self)
--- Hook to keep model of currentAlt (see ADDON_LOADED)
+--Hook to keep model of currentAlt (see ADDON_LOADED)
    if not lbIsTryingOn then
       debug("Entered onDress")
       if self == DressUpModel then
@@ -247,7 +246,7 @@ end
 
 -- **Button functionality
 local function lbButtonOnClick(self)
-   self:SetChecked(not altIsPlayer()) -- Button is highlighted if an Alt is shown
+   self:SetChecked(not altIsPlayer()) --Button is highlighted if an Alt is shown
    ToggleDropDownMenu(1, nil, lbMenu, self, 0, 0)
 end
 
@@ -334,68 +333,81 @@ local function initMenu()
    UIDropDownMenu_Initialize(lbMenu, menuOnLoad, "MENU")
 end
 
--- **Event handling and triggers
-function events:ADDON_LOADED(...)
-   local addonName = ...
-   if (addonName == OUR_NAME) then
-      self:UnregisterEvent("ADDON_LOADED")
-      self:RegisterEvent("PLAYER_LOGIN")
+-- **Addon wide initialization
+local addonNotInitd = true  
+local function addonInit()
+   if addonNotInitd then   
+      addonNotInitd = nil
       hooksecurefunc(DressUpModel, "SetUnit", onDress)
       hooksecurefunc(DressUpModel, "Dress", onDress)
       hooksecurefunc(DressUpModel, "TryOn", onTryOn)            
       hooksecurefunc(SideDressUpModel, "SetUnit", onDress)
       hooksecurefunc(SideDressUpModel, "Dress", onDress)
       hooksecurefunc(SideDressUpModel, "TryOn", onTryOn)            
-
-      initDB() -- Make sure our database is there and contains this character
-      initButton() -- Attach our button to the dressup frame
-      initMenu() -- Tell the client about our dropdown menu
-      freshenItemData() -- Loads item data for everything our alts have equipped
-      SlashCmdList["LOOKSBETTER"] = slashCmdParser -- Add Slash Commands
+      initDB() --Make sure our database is there and contains this character
+      initButton() --Attach our button to the dressup frame
+      initMenu() --Tell the client about our dropdown menu
+      freshenItemData() --Loads item data for everything our alts have equipped
+      SlashCmdList["LOOKSBETTER"] = slashCmdParser --Add Slash Commands
       SLASH_LOOKSBETTER1 = "/lboy"
-      self.ADDON_LOADED = nil -- We don't need this function anymore.
+      events:RegisterEvent('UNIT_INVENTORY_CHANGED')
+   end
+end
+                                                  
+-- **Event handling and triggers
+function events:ADDON_LOADED(...)
+   local addonName = ...
+   if (addonName == OUR_NAME) then
+      addonInit() --Set up db and ui elements, cache item data, set hooks, set /cmd
+      --Clean this up
+      self:UnregisterEvent("ADDON_LOADED")
+      self.ADDON_LOADED = nil
    end
 end
 
 function events:PLAYER_LOGIN()
-	self:UnregisterEvent('PLAYER_LOGIN')
-  	self:RegisterEvent('UNIT_INVENTORY_CHANGED')
+   addonInit() --Set up db and ui elements, cache item data, set hooks, set /cmd
+   --Store initial equipped items
+   self:UNIT_INVENTORY_CHANGED("player")
+   --Hello, world! ... or hello, player, anyhow
    chatMsg(L["\"Looks Better On You!\" loaded."])
    chatMsg(L["  Click the tab at the top right of the Dressing Room to select and view Alts."])
-   self:UNIT_INVENTORY_CHANGED("player") -- Store initial equipped items
-   self.PLAYER_LOGIN = nil -- We don't need this function anymore.    
+	--Clean this up
+   self:UnregisterEvent('PLAYER_LOGIN')
+   self.PLAYER_LOGIN = nil
 end   
 
 
 function events:UNIT_INVENTORY_CHANGED(unit)
--- Store any changes in this character's equipped items   
+--Store any changes in this character's equipped items   
    if unit == 'player' then
       for _, i in ipairs(transmogInvSlots) do
-         -- Store the item id for the visible item
+         --Store the item id for the visible item
          playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
       end
       for _, i in ipairs(noTransmogInvSlots) do
-         -- Store the item id for the actual item for shirt and tabard
+         --Store the item id for the actual item for shirt and tabard
          playerDB.equip[i] = GetInventoryItemID("player", i) 
       end
    end
 end
 
 do
--- Think of this as an OnLoad function for our event frame.
--- registered events will be redirected to event:EVENT_NAME(...)
-   eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
+--Think of this as an OnLoad function for our event frame.
+--registered events will be redirected to event:EVENT_NAME(...)
+   local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
    eFrame:SetScript("OnEvent", function(self, event, ...)
          events[event](events, ...)
       end)
    eFrame:RegisterEvent("ADDON_LOADED")
-end
-   
--- Since the handlers are on the event object, lets make registering intuitive
-function events:RegisterEvent(...)
-   eFrame:RegisterEvent(...)
-end
+   eFrame:RegisterEvent("PLAYER_LOGIN")
 
-function events:UnregisterEvent(...)
-   eFrame:UnregisterEvent(...)
+   --Since the handlers are on the event object, lets make registering intuitive
+   function events:RegisterEvent(...)
+      eFrame:RegisterEvent(...)
+   end
+   
+   function events:UnregisterEvent(...)
+      eFrame:UnregisterEvent(...)
+   end
 end
