@@ -1,14 +1,14 @@
--- Project: Looks Better On You r5
+-- Project: Looks Better On You r6
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-12T01:14:55Z
+-- Last Modified: 2012-03-12T01:17:06Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r5", "([%d\.]+)")
+local OUR_VERSION = string.match("r6", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
-local DEBUG = true
+local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
 
 -- **Constants -- Until Blizz changes them

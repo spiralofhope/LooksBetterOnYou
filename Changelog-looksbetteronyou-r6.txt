@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r6 | msaint | 2012-03-12 01:17:06 +0000 (Mon, 12 Mar 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+
+Turned off debugging messages, i.e. set DEBUG to nil.
+------------------------------------------------------------------------
 r5 | msaint | 2012-03-12 01:14:55 +0000 (Mon, 12 Mar 2012) | 1 line
 Changed paths:
    A /trunk/Images
