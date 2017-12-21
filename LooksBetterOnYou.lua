@@ -1,4 +1,4 @@
--- Project: Looks Better On You r12
+-- Project: Looks Better On You 1.05-beta
 -- File: LooksBetterOnYou.lua
 -- Last Modified: 2012-03-15T01:46:35Z
 -- Author: msaint
@@ -6,7 +6,7 @@
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r12", "([%d\.]+)")
+local OUR_VERSION = string.match("1.05-beta", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
