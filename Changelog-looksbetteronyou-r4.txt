@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r4 | msaint | 2012-03-11 18:55:26 +0000 (Sun, 11 Mar 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+
+Chosen alt persists as default model.  '/lboy reset' to reset to current character.  Cleaned up debug / chat messages.
+------------------------------------------------------------------------
 r3 | msaint | 2012-03-11 03:01:54 +0000 (Sun, 11 Mar 2012) | 1 line
 Changed paths:
    M /trunk/LooksBetterOnYou.lua
