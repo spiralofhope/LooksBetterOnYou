@@ -1,6 +1,6 @@
--- Project: Looks Better On You r22
+-- Project: Looks Better On You r23
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-29T18:43:43Z
+-- Last Modified: 2012-04-11T01:25:41Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 -- Acknowledgements: Thanks to a particular pal for pushing me to write this.
@@ -99,6 +99,28 @@ local transmogInvSlots = {
    INVSLOT_RANGED,
 }
 
+local invTypeToSlot = {
+   INVTYPE_HEAD = INVSLOT_HEAD,
+   INVTYPE_SHOULDER = INVSLOT_SHOULDER,
+   INVTYPE_BODY = INVSLOT_BODY,
+   INVTYPE_CHEST = INVSLOT_CHEST,
+   INVTYPE_ROBE = INVSLOT_CHEST,
+   INVTYPE_WAIST = INVSLOT_WAIST,
+   INVTYPE_LEGS = INVSLOT_LEGS,
+   INVTYPE_FEET = INVSLOT_FEET,
+   INVTYPE_WRIST = INVSLOT_WRIST,
+   INVTYPE_HAND = INVSLOT_HAND,
+   INVTYPE_CLOAK = INVSLOT_BACK,
+   INVTYPE_SHIELD = INVSLOT_OFFHAND,
+   INVTYPE_2HWEAPON = INVSLOT_MAINHAND,
+   INVTYPE_WEAPONMAINHAND = INVSLOT_MAINHAND,
+   INVTYPE_WEAPONOFFHAND = INVSLOT_OFFHAND,
+   INVTYPE_HOLDABLE = INVSLOT_OFFHAND,
+   INVTYPE_RANGED = INVSLOT_RANGED,
+   INVTYPE_THROWN = INVSLOT_RANGED,
+   INVTYPE_TABARD = INVSLOT_TABARD, 
+} 
+
 local noTransmogInvSlots = {
    INVSLOT_BODY,
    INVSLOT_TABARD,
@@ -120,16 +142,19 @@ local visibleNoWepInvSlots = {
 
 local DEFAULT_MH, DEFAULT_EH = 25318, 36497 --Used to force correct weapon loading sequence
 
+--local saveOutfitPopup --Defined later because the OnAccept needs local utility functions
+
 
 -- **Variables & Tables
 local events = {} --Object on which event handlers will be placed
-local lbDB, playerDB --Local references to saved variables table
+local lbDB, playerDB --Local references to saved alt databases
+local savedOutfits --Local reference to saved outfits 
 local lbSideButton, lbSideName, lbTopButton, lbTopName, lbMenu --UI elements
 local currentAlt = {realm = GetRealmName(), name = UnitName('player')}
 local tryOnList = {} --Items currently being tried on in the Dressing Room
 local sideTryOnList = {} --^^ but for SideDressUpFrame
 local lbIsTryingOn = nil --Used to prevent a loop when hooking DressUpModel:TryOn
-
+local lastWeaponSlot = INVSLOT_OFFHAND --This is ugly, but so is the DressUp code's handling of weapons
 
 --
 -- *********** LOCAL FUNCTIONS ************
@@ -141,6 +166,72 @@ local lbIsTryingOn = nil --Used to prevent a loop when hooking DressUpModel:TryO
 local function chatMsg(s, r, g, b)
    DEFAULT_CHAT_FRAME:AddMessage(s, r, g, b)
 end
+
+local function shallowCopy(destT, sourceT)
+--Does a shallow copy of sourceT INTO destT (i.e. overwrites only as needed)
+--If only one table is passed, a shallow copy is placed in a new table and returned.
+   if not sourceT then
+      sourceT = destT
+      destT = {}
+   end
+   if not destT or type(destT) ~= "table" then
+      destT = {}
+   end
+   if sourceT and type(sourceT) == "table" then
+      for a, b in pairs(sourceT) do
+         destT[a] = b
+      end
+   end
+   return destT
+end
+
+StaticPopupDialogs["LBOY_SAVE_OUTFIT"] = {
+   text = "Save the current outfit as:",
+   button1 = "Save",
+   button2 = "Cancel",
+   hasEditBox = true,
+   maxLetters = 18,
+   OnShow = function(self) --Since the editbox starts blank, the save button should be disabled
+         self.editBox:SetText("")
+         self.button1:Disable()
+      end, 
+   OnAccept = function(self)
+         local outfitName = self.editBox:GetText()
+         if not savedOutfits[outfitName] then
+            local list = DressUpFrame:IsVisible() and tryOnList or sideTryOnList  
+            savedOutfits[outfitName] = shallowCopy(shallowCopy(currentAlt.info.equip), list)
+         end
+      end,
+   EditBoxOnTextChanged = function(self)
+         text = self:GetText()
+         if text and text ~= "" and not savedOutfits[text] then
+            self:GetParent().button1:Enable()
+         else
+            self:GetParent().button1:Disable()
+         end
+      end,
+   timeout = 0,
+   whileDead = true,
+   hideOnEscape = true,
+   exclusive = true,
+   preferredIndex = 3,  --claims abound that this avoids some UI taint to the glyph frame. I'll have to look into it. 
+}
+
+StaticPopupDialogs["LBOY_DELETE_CONFIRM"] = {
+   text = "Are you sure you want to delete saved outfit \'%s\'?",
+   button1 = "Delete",
+   button2 = "Cancel",
+   OnAccept = function(self, outfitName)
+         if savedOutfits[outfitName] then
+            savedOutfits[outfitName] = nil
+         end
+      end,
+   timeout = 0,
+   whileDead = true,
+   hideOnEscape = true,
+   exclusive = true,
+   preferredIndex = 3,  --claims abound that this avoids some UI taint to the glyph frame. I'll have to look into it. 
+}
 
 
 -- **Alt handling functions
@@ -205,7 +296,6 @@ local function setCurrentAlt(name, realm)
    end
 end
 
-
 -- **I'm not sure why, but my instinct is to keep the slash commands for now
 -- 
 
@@ -251,54 +341,86 @@ end
 -- **Character model functions
 --
 
+local function tryOnWeapons(model, mh, oh)
+--Model is very quirky when trying on weapons where the offhand 
+--can be equipped in the main hand. To guarantee that the correct
+--weapon goes in each hand, we have to first try on a main-hand-only
+--weapon, then one that can go in either hand, then our OH, then
+--our MH.
+   if mh and IsEquippableItem(mh) then 
+      model:TryOn("item:"..tostring(DEFAULT_MH))
+      model:TryOn("item:"..tostring(DEFAULT_EH))
+   end
+   if oh and IsEquippableItem(oh) then 
+      model:TryOn("item:"..oh)
+   end
+   if mh and IsEquippableItem(mh) then 
+      model:TryOn("item:"..mh)
+      lastWeaponSlot = INVSLOT_MAINHAND
+   end
+end
+
 local function loadAltDressup()
    local alt = currentAlt.info
    if alt and alt.race and alt.sex then
       lbIsTryingOn = true --Prevent a loop in hooked TryOn function
       for _, model in pairs({DressUpModel, SideDressUpModel}) do
          if model:IsVisible() then      
-            if altIsPlayer() then
-               model:Dress()
-            else
-               model:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
-               model:Undress() --Must be after SetCustomRace
-               for _, i in ipairs(visibleNoWepInvSlots) do --Load the alts visible items
-                  local item = alt.equip[i]
-                  if IsEquippableItem(item) then
-                     model:TryOn("item:"..item)
-                  end
-               end
-               --Model is very quirky when trying on weapons where the offhand 
-               --can be equipped in the main hand. To guarantee that the correct
-               --weapon goes in each hand, we have to first try on a main-hand-only
-               --weapon, then one that can go in either hand, then our OH, then
-               --our MH.
-                local mh, oh = alt.equip[INVSLOT_MAINHAND], alt.equip[INVSLOT_OFFHAND]
-                if IsEquippableItem(mh) then 
-                  model:TryOn("item:"..tostring(DEFAULT_MH))
-                  model:TryOn("item:"..tostring(DEFAULT_EH))
-                end
-                if IsEquippableItem(oh) then 
-                  model:TryOn("item:"..oh)
-                end
-                if IsEquippableItem(mh) then 
-                  model:TryOn("item:"..mh)
-                end
-               --Special handling for hunters - they should show ranged weapon by default.
-               if alt.class == "HUNTER" and IsEquippableItem(alt.equip[INVSLOT_RANGED]) then
-                  model:TryOn("item:"..alt.equip[INVSLOT_RANGED])
+            model:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
+            model:Undress() --Must be after SetCustomRace
+            for _, i in ipairs(visibleNoWepInvSlots) do --Load the alts visible items
+               local item = alt.equip[i]
+               if IsEquippableItem(item) then
+                  model:TryOn("item:"..item)
                end
             end
+            --Now overwrite with whatever has been tried on in this session
             local list = (model == DressUpModel) and tryOnList or sideTryOnList
-            for _, item in ipairs(list) do --Load any items that have been ctr-clicked already
-               if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
+            for slot, item in pairs(list) do --Load any items that have been ctr-clicked already
+               if (not ((slot == INVSLOT_MAINHAND) or (slot == INVSLOT_OFFHAND) or (slot == INVSLOT_RANGED))) and
+                     IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
                   debug("Dressing from tryOnList: "..(GetItemInfo(item)))
                   model:TryOn("item:"..item)
                end
             end
+            --Weapons are last, since they are tricky to handle individually
+            local mh = list[INVSLOT_MAINHAND] or alt.equip[INVSLOT_MAINHAND]
+            local oh = list[INVSLOT_OFFHAND] or alt.equip[INVSLOT_OFFHAND] 
+            tryOnWeapons(model, mh, oh)
+            --Special handling for hunters - they should show ranged weapon by default.
+            if alt.class == "HUNTER" and IsEquippableItem(alt.equip[INVSLOT_RANGED]) then
+               model:TryOn("item:"..alt.equip[INVSLOT_RANGED])
+               lastWeaponSlot = INVSLOT_OFFHAND --Because after a ranged item, the next item goes in the mainhand
+            end 
          end
       end
       lbIsTryingOn = nil
+   end
+end
+
+local function saveCurrentOutfit()
+--Show a dialog with and edit box to name and save the current outfit
+   StaticPopup_Show("LBOY_SAVE_OUTFIT")
+end
+
+local function loadSavedOutfit(outfitName)
+--Loading an outfit makes it the reset outfit for the current alt.
+--To return an alt to their actual saved equipment, they must be re-selected
+--in the menu.
+   local outfit = savedOutfits[outfitName] 
+   if not outfit then
+      return
+   end
+   local list = (DressUpFrame:IsVisible()) and tryOnList or sideTryOnList
+   wipe(list)
+   shallowCopy(list, outfit)
+   loadAltDressup()
+end
+
+local function deleteSavedOutfit(f, outfitName)
+   local dialog = StaticPopup_Show("LBOY_DELETE_CONFIRM", outfitName)
+   if (dialog) then
+     dialog.data  = outfitName
    end
 end
 
@@ -307,24 +429,34 @@ local function onDress(self)
    if not lbIsTryingOn then
       debug("Entered onDress")
       if self == DressUpModel then
-         tryOnList = {}
+         wipe(tryOnList)
       elseif self == SideDressUpModel then 
-         sideTryOnList = {}
+         wipe(sideTryOnList)
       end
-      if not altIsPlayer() then
-         loadAltDressup()
-      end
+      loadAltDressup()
    end
 end
 
 local function onTryOn(self, link)
    if not lbIsTryingOn then
+      if not currentAlt.info then
+         local name, realm = UnitName("player"), GetRealmName()
+         setCurrentAlt(name, realm)
+      end
       local itemId = string.match(link, "^.-:(%d*)", 1)
+      local _, _, _, _, _, itemType , _, _, invType = GetItemInfo(itemId)
+      local slot = invTypeToSlot[invType]  
+      if (slot == INVSLOT_MAINHAND) or (slot == INVSLOT_OFFHAND) then
+         lastWeaponSlot = INVSLOT_OFFHAND --Reflects reality, more or less, however odd it may seem.
+      elseif (not slot) and (invType == "INVTYPE_WEAPON") then
+         slot = (lastWeaponSlot == INVSLOT_OFFHAND) and INVSLOT_MAINHAND or INVSLOT_OFFHAND
+         lastWeaponSlot = slot
+      end
       debug("Tryed on item:"..tostring(itemId))
       if self == DressUpModel then
-         table.insert(tryOnList, itemId)   
+         tryOnList[slot] = tonumber(itemId)   
       elseif self == SideDressUpModel then 
-         table.insert(sideTryOnList, itemId)
+         sideTryOnList[slot] = tonumber(itemId)
       else
          debug("onTryon: Invalid model frame")
       end
@@ -356,24 +488,8 @@ local function rgbToStr(rgb)
    return string.format("|cff%.2x%.2x%.2x", r, g, b)
 end
 
-local function getGenericMenuInfo(race, sex)
-   if menuModelNames[race] and ((sex == 3) or (sex == 2)) then
-      local info = UIDropDownMenu_CreateInfo()
-      info.text = menuModelNames[race] .. (((sex==2) and " Male") or ((sex==3) and " Female"))
-      info.value = {race = race, sex = sex}
-      info.checked = (info.text == currentAlt.name) and (currentAlt.realm == "GENERIC")
-      info.arg1 = race
-      info.arg2 = sex
-      info.func = function(self, arg1, arg2)
-            setGenericAlt(arg1, arg2)
-            loadAltDressup()
-         end
-      return info
-   end
-end
-
 local function getAltMenuInfo(name, realm)
---UIDropDownMenu_AddButton needs a table with information about the entry
+--generate UIDropDownMenu_AddButton info table with information about handling the entries for this alt
    local db = lbDB[realm][name]
    if db then
       local classColor = rgbToStr(RAID_CLASS_COLORS[db.class]) 
@@ -392,17 +508,51 @@ local function getAltMenuInfo(name, realm)
    end
 end
 
+local function getGenericMenuInfo(race, sex)
+--generate UIDropDownMenu_AddButton info table with information about handling the entries for this model
+   if menuModelNames[race] and ((sex == 3) or (sex == 2)) then
+      local info = UIDropDownMenu_CreateInfo()
+      info.text = menuModelNames[race] .. (((sex==2) and " Male") or ((sex==3) and " Female"))
+      info.value = {race = race, sex = sex}
+      info.checked = (info.text == currentAlt.name) and (currentAlt.realm == "GENERIC")
+      info.arg1 = race
+      info.arg2 = sex
+      info.func = function(self, arg1, arg2)
+            setGenericAlt(arg1, arg2)
+            loadAltDressup()
+         end
+      return info
+   end
+end
+
+local function getSavedOutfitInfo(outfitName)
+--generate UIDropDownMenu_AddButton info table with information about handling the entries for this outfit
+   if savedOutfits[outfitName] then
+      local info = UIDropDownMenu_CreateInfo()
+      info.text = outfitName
+      info.value = outfitName
+      info.notCheckable = true
+      info.arg1 = outfitName
+      info.func = function(self, arg1)
+            loadSavedOutfit(arg1)
+         end
+      return info
+   end
+end
+
 local function menuOnLoad(f, level)
 --Load either the level one menu showing alts, or the level two menu
 --showing all generic models.
    if level == 1 then
       --Populate the menu with class-colored alt names
       local player, thisRealm = UnitName('player'), GetRealmName()
-      local realmInfo = {isTitle = true, notCheckable = true}
-         --Realm line for this realm
-      realmInfo.text = thisRealm
-      realmInfo.value = thisRealm
-      UIDropDownMenu_AddButton(realmInfo, 1)           
+      local info = UIDropDownMenu_CreateInfo()
+      --Realm line for this realm
+      info.isTitle = true
+      info.notCheckable = true
+      info.text = thisRealm
+      info.value = thisRealm
+      UIDropDownMenu_AddButton(info, 1)           
          --Start with the player
       UIDropDownMenu_AddButton(getAltMenuInfo(player, thisRealm), 1)
          --Now other characters on the current realm
@@ -411,20 +561,44 @@ local function menuOnLoad(f, level)
             UIDropDownMenu_AddButton(getAltMenuInfo(name, thisRealm), 1)
          end
       end
-         --Now all alts on other realms
+      --Now all alts on other realms
       for realm, realmDB in pairs(lbDB) do
          if not (realm == thisRealm) then
-            realmInfo.text = realm
-            realmInfo.value = realm
-            UIDropDownMenu_AddButton(realmInfo, 1)           
+            info.text = realm --reuse info as is changing realm name for each realm title line
+            info.value = realm
+            UIDropDownMenu_AddButton(info, 1)           
             for name, _ in pairs(realmDB) do
                UIDropDownMenu_AddButton(getAltMenuInfo(name, realm), 1)
             end
          end
       end
       do
-         --Add an entry to reach sub-menu with generic models
-         local info = UIDropDownMenu_CreateInfo()
+         --Save the current outfit
+         info = UIDropDownMenu_CreateInfo()
+         info.text = "Save Outfit"
+         info.value = "saveOutfit"
+         info.notCheckable = true
+         info.arg1 = outfitName
+         info.func = saveCurrentOutfit
+         UIDropDownMenu_AddButton(info, 1)
+         --Sub-menu with saved outfits
+         info = UIDropDownMenu_CreateInfo()
+         info.text = "Load Outfit"
+         info.value = "loadOutfit"
+         info.hasArrow = true
+         info.notCheckable = true
+         info.disabled = not next(savedOutfits)
+         UIDropDownMenu_AddButton(info, 1)
+         --Sub-menu to delete saved outfits
+         info = UIDropDownMenu_CreateInfo()
+         info.text = "Delete Outfit"
+         info.value = "deleteOutfit"
+         info.hasArrow = true
+         info.notCheckable = true
+         info.disabled = not next(savedOutfits)
+         UIDropDownMenu_AddButton(info, 1)
+         --Sub-menu with generic models
+         info = UIDropDownMenu_CreateInfo()
          info.text = "All Models"
          info.value = "allModelsSubmenu"
          info.hasArrow = true
@@ -432,9 +606,21 @@ local function menuOnLoad(f, level)
          UIDropDownMenu_AddButton(info, 1)
       end      
    elseif level == 2 then
-      for _, race in ipairs(alphaOrderedRaces) do
-         UIDropDownMenu_AddButton(getGenericMenuInfo(race, 3), 2)
-         UIDropDownMenu_AddButton(getGenericMenuInfo(race, 2), 2)
+      if UIDROPDOWNMENU_MENU_VALUE == "allModelsSubmenu" then
+         for _, race in ipairs(alphaOrderedRaces) do
+            UIDropDownMenu_AddButton(getGenericMenuInfo(race, 3), 2)
+            UIDropDownMenu_AddButton(getGenericMenuInfo(race, 2), 2)
+         end
+      elseif UIDROPDOWNMENU_MENU_VALUE == "loadOutfit" then
+         for outfitName, _ in pairs(savedOutfits) do
+            UIDropDownMenu_AddButton(getSavedOutfitInfo(outfitName), 2)
+         end
+      elseif UIDROPDOWNMENU_MENU_VALUE == "deleteOutfit" then
+         for outfitName, _ in pairs(savedOutfits) do
+            local info = getSavedOutfitInfo(outfitName)
+            info.func = deleteSavedOutfit
+            UIDropDownMenu_AddButton(info, 2)
+         end
       end
    end
 end   
@@ -486,6 +672,8 @@ local function initDB()
    lbDB[realm] = lbDB[realm] or {}
    lbDB[realm][player] = lbDB[realm][player] or {race=(select(2, UnitRace('player'))) , sex=UnitSex('player') , class=(select(2, UnitClass('player'))), equip={}}
    playerDB = lbDB[realm][player]
+   savedOutfits = LooksBetterSavedOutfits or {}
+   LooksBetterSavedOutfits = savedOutfits
 end
 
 local function addonInit()
@@ -531,11 +719,15 @@ function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
    end
    for _, i in ipairs(transmogInvSlots) do
       --Store the item id for the visible item
-      if (not slot) or (i == slot) and GetInventoryItemID("player", i) then
+      if (not slot) or (i == slot) then
+         if GetInventoryItemID("player", i) then
          --GetInventoryItemID above is used to guarantee that item data is there.
          --GetTransmogrigySlotInfo will crash WoW in Mac and 64-bit Windows
          --clients if called before item data is available. 
-         playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
+            playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
+         elseif not (slot and hasItem) then
+            playerDB.equip[i] = nil
+         end
       end
    end
    for _, i in ipairs(noTransmogInvSlots) do
@@ -545,7 +737,7 @@ function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
       end 
    end
    playerDB.equip[INVSLOT_HEAD] = helm and playerDB.equip[INVSLOT_HEAD] or nil
-   playerDB.equip[INVSLOT_BACK] = cloak and playerDB.equip[INVSLOT_BACK] or nil       
+   playerDB.equip[INVSLOT_BACK] = cloak and playerDB.equip[INVSLOT_BACK] or nil
 end
 
 

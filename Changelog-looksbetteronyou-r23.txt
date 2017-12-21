@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+r23 | msaint | 2012-04-11 01:25:41 +0000 (Wed, 11 Apr 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+   M /trunk/LooksBetterOnYou.toc
+
+Added options to save, load, and delete outfits.
+------------------------------------------------------------------------
 r22 | msaint | 2012-03-29 18:43:43 +0000 (Thu, 29 Mar 2012) | 1 line
 Changed paths:
    M /trunk/LooksBetterOnYou.lua
