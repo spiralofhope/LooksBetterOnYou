@@ -1,12 +1,12 @@
--- Project: Looks Better On You r7
+-- Project: Looks Better On You r8
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-13T00:27:12Z
+-- Last Modified: 2012-03-13T23:32:02Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r7", "([%d\.]+)")
+local OUR_VERSION = string.match("r8", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
@@ -66,9 +66,10 @@ local GetItemInfo = GetItemInfo
 local events = {}
 local lbDB, playerDB
 local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
-local lbButton, lbMenu
+local lbSideButton, lbTopButton, lbMenu
 local currentAlt = {realm = GetRealmName(), name = UnitName('player')}
 local tryOnList = {} -- Items currently being tried on in the Dressing Room
+local sideTryOnList = {} -- ^^ but for SideDressUpFrame
 local lbIsTryingOn = nil -- Used to prevent a loop when hooking DressUpModel:TryOn
 
 -- **Local functions
@@ -136,9 +137,16 @@ local function setCurrentAlt(name, realm)
    if alt and alt.race and alt.sex then
       currentAlt.name = name
       currentAlt.realm = realm
-      lbButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
-      LooksBetterButtonName:SetText(name)
-      lbButton:SetChecked(not altIsPlayer())
+      if lbSideButton:IsShown() then 
+         lbSideButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
+         lbSideButton:SetChecked(not altIsPlayer())
+         LooksBetterSideButtonName:SetText(name)
+      end
+      if lbTopButton:IsShown() then
+         lbTopButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
+         lbTopButton:SetChecked(not altIsPlayer())
+         LooksBetterTopButtonName:SetText(name)
+      end
       return name, realm
    end
 end
@@ -152,12 +160,20 @@ local function slashCmdParser(name)
          if DressUpFrame:IsShown() then
             DressUpModel:SetUnit("player")
          end
+         if SideDressUpFrame:IsShown() then
+            SideDressUpModel:SetUnit("player")
+         end
       else
          if setCurrentAlt(name) then
-            if ( not DressUpFrame:IsShown() ) then
+            if not (DressUpFrame:IsShown() or SideDressUpFrame:IsShown()) then
       			ShowUIPanel(DressUpFrame)
       		end
-            DressUpModel:SetUnit("player")
+            if DressUpFrame:IsShown() then
+               DressUpModel:SetUnit("player")
+            end
+            if SideDressUpFrame:IsShown() then
+               SideDressUpModel:SetUnit("player")
+            end
          end
       end
    end
@@ -168,33 +184,42 @@ local function loadAltDressup()
    local alt = lbDB and lbDB[realm] and lbDB[realm][name] or nil
    if alt and alt.race and alt.sex then
       lbIsTryingOn = true -- Prevent a loop in hooked TryOn function
-      if altIsPlayer() then
-         DressUpModel:Dress()
-      else
-         DressUpModel:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
-         DressUpModel:Undress() -- Must be after SetCustomRace
-         for _, item in pairs(alt.equip) do -- Load the alts visible items
-            if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
-               --debug((GetItemInfo(item)))
-               DressUpModel:TryOn("item:"..item)
+      for _, model in pairs({DressUpModel, SideDressUpModel}) do
+         if model:IsShown() then      
+            if altIsPlayer() then
+               model:Dress()
+            else
+               model:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
+               model:Undress() -- Must be after SetCustomRace
+               for _, item in pairs(alt.equip) do -- Load the alts visible items
+                  if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
+                     --debug((GetItemInfo(item)))
+                     model:TryOn("item:"..item)
+                  end
+               end
             end
-         end
-      end
-      for _, item in ipairs(tryOnList) do -- Load any items that have been ctr-clicked already
-         if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
-            --debug((GetItemInfo(item)))
-            DressUpModel:TryOn("item:"..item)
+            local list = (model == DressUpModel) and tryOnList or sideTryOnList
+            for _, item in ipairs(list) do -- Load any items that have been ctr-clicked already
+               if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
+                  --debug((GetItemInfo(item)))
+                  model:TryOn("item:"..item)
+               end
+            end
          end
       end
       lbIsTryingOn = nil
    end
 end
 
-local function onDress()
+local function onDress(self)
 -- Hook to keep model of currentAlt (see ADDON_LOADED)
    if not lbIsTryingOn then
       debug("Entered onDress")
-      table.wipe(tryOnList)
+      if self == DressUpModel then
+         tryOnList = {}
+      elseif self == SideDressUpModel then 
+         sideTryOnList = {}
+      end
       if not altIsPlayer() then
          loadAltDressup()
       end
@@ -203,32 +228,40 @@ end
 
 local function onTryOn(self, link)
    if not lbIsTryingOn then
-      itemId = string.match(link, "^.-:(%d*)", 1)
+      local itemId = string.match(link, "^.-:(%d*)", 1)
       debug("Tryed on item:"..tostring(itemId))
-      table.insert(tryOnList, itemId)
+      if self == DressUpModel then
+         table.insert(tryOnList, itemId)   
+      elseif self == SideDressUpModel then 
+         table.insert(sideTryOnList, itemId)
+      else
+         debug("onTryon: Invalid model frame")
+      end
    end
 end
 
 -- **Button functionality
-local function lbButtonOnClick()
-   lbButton:SetChecked(not altIsPlayer()) -- Button is highlighted if an Alt is shown
-   ToggleDropDownMenu(1, nil, lbMenu, lbButton, 0, 0)
+local function lbButtonOnClick(self)
+   self:SetChecked(not altIsPlayer()) -- Button is highlighted if an Alt is shown
+   ToggleDropDownMenu(1, nil, lbMenu, self, 0, 0)
 end
 
-local function lbButtonOnShow()
+local function lbButtonOnShow(self)
    debug("Entered lbButtonOnShow")
-   lbButton:SetChecked(not altIsPlayer())
-   LooksBetterButtonName:SetText(currentAlt.name)
+   self:SetChecked(not altIsPlayer())
+   _G[self:GetName().."Name"]:SetText(currentAlt.name)
 end
 
 local function initButton()
    debug("Initializing Button")
-   lbButton = LooksBetterButton
-   lbMenu = LooksBetterMenu
-   lbButton:SetScript("OnShow", lbButtonOnShow)
-   lbButton:SetScript("OnClick", lbButtonOnClick)
-   lbButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
-   UIDropDownMenu_Initialize(lbMenu, menuOnLoad, "MENU");
+   lbSideButton = LooksBetterSideButton
+   lbSideButton:SetScript("OnShow", lbButtonOnShow)
+   lbSideButton:SetScript("OnClick", lbButtonOnClick)
+   lbSideButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
+   lbTopButton = LooksBetterTopButton
+   lbTopButton:SetScript("OnShow", lbButtonOnShow)
+   lbTopButton:SetScript("OnClick", lbButtonOnClick)
+   lbTopButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
 end
 
 -- **Menu functions
@@ -253,7 +286,7 @@ local function getMenuInfo(name, realm)
                loadAltDressup()   
             end,
          arg1 = name,
-         arg2 = realm,  
+         arg2 = realm,
          }
       return info
    end
@@ -291,7 +324,7 @@ end
 local function initMenu()
    debug("Initializing Menu")
    lbMenu = LooksBetterMenu
-   UIDropDownMenu_Initialize(lbMenu, menuOnLoad, "MENU");
+   UIDropDownMenu_Initialize(lbMenu, menuOnLoad, "MENU")
 end
 
 -- **Event handling and triggers
@@ -303,6 +336,10 @@ function events:ADDON_LOADED(...)
       hooksecurefunc(DressUpModel, "SetUnit", onDress)
       hooksecurefunc(DressUpModel, "Dress", onDress)
       hooksecurefunc(DressUpModel, "TryOn", onTryOn)            
+      hooksecurefunc(SideDressUpModel, "SetUnit", onDress)
+      hooksecurefunc(SideDressUpModel, "Dress", onDress)
+      hooksecurefunc(SideDressUpModel, "TryOn", onTryOn)            
+
       initDB() -- Make sure our database is there and contains this character
       initButton() -- Attach our button to the dressup frame
       initMenu() -- Tell the client about our dropdown menu

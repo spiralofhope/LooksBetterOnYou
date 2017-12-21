@@ -1,6 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
 ..\FrameXML\UI.xsd">
-  	<CheckButton name="LooksBetterButton" parent="DressUpFrame" hidden="false">
+  	<CheckButton name="LooksBetterSideButton" parent="DressUpFrame" hidden="false">
 		<Size>
 			<AbsDimension x="62" y="25"/>
 		</Size>
@@ -21,7 +21,7 @@
    			</FontString>
          </Layer>
          <Layer level="BACKGROUND">
-				<Texture file="Interface\Addons\LooksBetterOnYou\Images\BL_DressUpFrameTab">
+				<Texture file="Interface\Addons\LooksBetterOnYou\Images\LB_DressUpFrameSideTab">
 					<Size>
 						<AbsDimension x="72" y="50"/>
 					</Size>
@@ -60,11 +60,73 @@
 				GameTooltip:Hide();
 			</OnLeave>
 		</Scripts>
-		<NormalTexture file="Interface\Icons\Spell_Magic_LesserInvisibility"/>
+		<NormalTexture/>
 		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 		<CheckedTexture file="Interface\Buttons\CheckButtonHilight" alphaMode="ADD"/>
-      <Frames>
-         <Frame name="LooksBetterMenu" inherits="UIDropDownMenuTemplate" id="1"/>
-      </Frames>
 	</CheckButton>
+  	<CheckButton name="LooksBetterTopButton" parent="SideDressUpFrame" hidden="false">
+		<Size>
+			<AbsDimension x="74" y="17"/>
+		</Size>
+      <Anchors>
+         <Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT">
+            <Offset>
+               <AbsDimension x="-34" y="-5"/>
+            </Offset>
+         </Anchor>
+      </Anchors>
+      <Layers>
+         <Layer level="OVERLAY">
+            <FontString name="$parentName" inherits="GameFontHighlightSmallOutline">
+   				<Anchors>
+   					<Anchor point="TOPLEFT" x="3" y="0"/>
+   					<Anchor point="BOTTOMRIGHT"/>
+   				</Anchors>
+   			</FontString>
+         </Layer>
+         <Layer level="BACKGROUND">
+				<Texture file="Interface\Addons\LooksBetterOnYou\Images\LB_DressUpFrameTopTab">
+					<Size>
+						<AbsDimension x="84" y="21"/>
+					</Size>
+					<Anchors>
+						<Anchor point="TOPLEFT">
+							<Offset>
+								<AbsDimension x="-6" y="3"/>
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK" textureSubLevel="1">
+				<Texture name="$parentTabardEmblem" parentKey="TabardEmblem" hidden="true" file="Interface\GuildFrame\GuildEmblemsLG_01">
+					<Size x="80" y="31"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="-3" y="3"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK" textureSubLevel="2">
+				<Texture name="$parentTabardIconFrame" file="Interface\Spellbook\GuildSpellbooktabIconFrame" parentKey="TabardIconFrame" hidden="true">
+					<Size x="74" y="25"/>
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnEnter>
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+				GameTooltip:SetText(self.tooltip);
+			</OnEnter>
+			<OnLeave>
+				GameTooltip:Hide();
+			</OnLeave>
+		</Scripts>
+		<NormalTexture/>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
+		<CheckedTexture file="Interface\Buttons\CheckButtonHilight" alphaMode="ADD"/>
+	</CheckButton>
+	<Frame name="LooksBetterMenu" inherits="UIDropDownMenuTemplate" id="1"/>
 </Ui>

@@ -1,4 +1,14 @@
 ------------------------------------------------------------------------
+r8 | msaint | 2012-03-13 23:32:02 +0000 (Tue, 13 Mar 2012) | 1 line
+Changed paths:
+   D /trunk/Images/BL_DressUpFrameTab.blp
+   A /trunk/Images/LB_DressUpFrameSideTab.blp
+   A /trunk/Images/LB_DressUpFrameTopTab.blp
+   M /trunk/LooksBetterOnYou.lua
+   M /trunk/LooksBetterOnYou.xml
+
+Added top tab to side dressup, and full addon functionality for the that frame.  Items tried on are tracked separately for the two dressup frames.
+------------------------------------------------------------------------
 r7 | msaint | 2012-03-13 00:27:12 +0000 (Tue, 13 Mar 2012) | 1 line
 Changed paths:
    M /trunk/Images
