@@ -1,12 +1,12 @@
--- Project: Looks Better On You r8
+-- Project: Looks Better On You r10
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-13T23:32:02Z
+-- Last Modified: 2012-03-14T00:16:02Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r8", "([%d\.]+)")
+local OUR_VERSION = string.match("r10", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = nil
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
@@ -51,22 +51,26 @@ local noTransmogInvSlots = {
 if (LooksBetter and LooksBetter.Version and LooksBetter.Version >= OUR_VERSION) then return end
 LooksBetter = LooksBetter or {AddonName = OUR_NAME, Version = OUR_VERSION}
 
+-- **Local references to library functions
+local type, tostring, tonumber, next, pairs, ipairs, select, setmetatable = type, tostring, tonumber, next, pairs, ipairs, select, setmetatable 
+local math, string, strsplit, table, tinsert = math, string, strsplit, table, tinsert 
+
+-- **Local references to API functions and globals
+local GetRealmName, UnitName, UnitRace, UnitSex, UnitClass = GetRealmName, UnitName, UnitRace, UnitSex, UnitClass
+local GetTransmogrifySlotInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem = GetTransmogrifySlotInfo, GetInventoryItemID, GetItemInfo, IsEquippableItem
+local UIDropDownMenu_Initialize, UIDropDownMenu_AddButton, ToggleDropDownMenu, ShowUIPanel = UIDropDownMenu_Initialize, UIDropDownMenu_AddButton, ToggleDropDownMenu, ShowUIPanel
+local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local hooksecurefunc = hooksecurefunc
+
 -- **Set up for future localization -- not much to localize, though, I must say.
 local L = LooksBetter.L or {}
 setmetatable( L, { __index = function(t, text) return text end })
-
--- **Local references to library functions
-local type, tostring, tonumber, next, pairs, ipairs, setmetatable = type, tostring, tonumber, next, pairs, ipairs, setmetatable 
-local math, string, table, tinsert = math, string, table, tinsert 
-
--- **Local references to API functions
-local GetItemInfo = GetItemInfo
 
 -- **Locals
 local events = {}
 local lbDB, playerDB
 local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
-local lbSideButton, lbTopButton, lbMenu
+local lbSideButton, lbSideName, lbTopButton, lbTopName, lbMenu
 local currentAlt = {realm = GetRealmName(), name = UnitName('player')}
 local tryOnList = {} -- Items currently being tried on in the Dressing Room
 local sideTryOnList = {} -- ^^ but for SideDressUpFrame
@@ -140,18 +144,19 @@ local function setCurrentAlt(name, realm)
       if lbSideButton:IsShown() then 
          lbSideButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
          lbSideButton:SetChecked(not altIsPlayer())
-         LooksBetterSideButtonName:SetText(name)
+         lbSideName:SetText(name)
       end
       if lbTopButton:IsShown() then
          lbTopButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
          lbTopButton:SetChecked(not altIsPlayer())
-         LooksBetterTopButtonName:SetText(name)
+         lbTopName:SetText(name)
       end
       return name, realm
    end
 end
 
 local function slashCmdParser(name)
+-- Leaving in slash command functionality for now, although it is not documented
    if type(name) == "string" then
       if name == "list" then
          listSavedAlts()
@@ -255,10 +260,12 @@ end
 local function initButton()
    debug("Initializing Button")
    lbSideButton = LooksBetterSideButton
+   lbSideName = LooksBetterSideButtonName 
    lbSideButton:SetScript("OnShow", lbButtonOnShow)
    lbSideButton:SetScript("OnClick", lbButtonOnClick)
    lbSideButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
    lbTopButton = LooksBetterTopButton
+   lbTopName = LooksBetterTopButtonName
    lbTopButton:SetScript("OnShow", lbButtonOnShow)
    lbTopButton:SetScript("OnClick", lbButtonOnClick)
    lbTopButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
@@ -354,7 +361,7 @@ function events:PLAYER_LOGIN()
 	self:UnregisterEvent('PLAYER_LOGIN')
   	self:RegisterEvent('UNIT_INVENTORY_CHANGED')
    chatMsg(L["\"Looks Better On You!\" loaded."])
-   chatMsg(L["  Type '/lboy list' to print a list of available alts."])
+   chatMsg(L["  Click the tab at the top right of the Dressing Room to select and view Alts."])
    self:UNIT_INVENTORY_CHANGED("player") -- Store initial equipped items
    self.PLAYER_LOGIN = nil -- We don't need this function anymore.    
 end   

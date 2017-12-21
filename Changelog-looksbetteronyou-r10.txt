@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+r10 | msaint | 2012-03-14 00:16:02 +0000 (Wed, 14 Mar 2012) | 1 line
+Changed paths:
+   M /trunk/LooksBetterOnYou.lua
+
+All library and api calls declared locally, small edits for clarity and efficiency.
+------------------------------------------------------------------------
 r8 | msaint | 2012-03-13 23:32:02 +0000 (Tue, 13 Mar 2012) | 1 line
 Changed paths:
    D /trunk/Images/BL_DressUpFrameTab.blp
