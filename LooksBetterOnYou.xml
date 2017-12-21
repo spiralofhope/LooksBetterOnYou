@@ -63,5 +63,8 @@
 		<NormalTexture file="Interface\Icons\Spell_Magic_LesserInvisibility"/>
 		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 		<CheckedTexture file="Interface\Buttons\CheckButtonHilight" alphaMode="ADD"/>
+      <Frames>
+         <Frame name="LooksBetterMenu" inherits="UIDropDownMenuTemplate" id="1"/>
+      </Frames>
 	</CheckButton>
 </Ui>
