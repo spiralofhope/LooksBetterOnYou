@@ -1,6 +1,6 @@
--- Project: Looks Better On You r18
+-- Project: Looks Better On You r19
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-26T01:21:16Z
+-- Last Modified: 2012-03-26T02:16:41Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
@@ -117,6 +117,8 @@ local visibleNoWepInvSlots = {
    INVSLOT_HAND,
    INVSLOT_BACK,
 }
+
+local DEFAULT_MH, DEFAULT_EH = 25318, 36497 --Used to force correct weapon loading sequence
 
 
 -- **Variables & Tables
@@ -273,8 +275,8 @@ local function loadAltDressup()
                --our MH.
                 local mh, oh = alt.equip[INVSLOT_MAINHAND], alt.equip[INVSLOT_OFFHAND]
                 if IsEquippableItem(mh) then 
-                  model:TryOn("item:25318")
-                  model:TryOn("item:36497")
+                  model:TryOn("item:"..tostring(DEFAULT_MH))
+                  model:TryOn("item:"..tostring(DEFAULT_EH))
                 end
                 if IsEquippableItem(oh) then 
                   model:TryOn("item:"..oh)
@@ -452,6 +454,8 @@ local function freshenItemData()
          end
       end
    end
+   --The next two are used for properly loading weapons
+   local _, _ = GetItemInfo(DEFAULT_MH), GetItemInfo(DEFAULT_EH)
 end
 
 local function initMenu()
@@ -495,7 +499,6 @@ local function addonInit()
    initButton() --Attach our button to the dressup frame
    initMenu() --Tell the client about our dropdown menu
    freshenItemData() --Loads item data for everything our alts have equipped
-   events:SetTimedCallback(freshenItemData, 5) --We might be missing some data if the server gets fed up with us the first time through
    SlashCmdList["LOOKSBETTER"] = slashCmdParser --Add Slash Commands
    SLASH_LOOKSBETTER1 = "/lboy"
    events:RegisterEvent('PLAYER_EQUIPMENT_CHANGED')
