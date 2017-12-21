@@ -1,6 +1,6 @@
--- Project: Looks Better On You 1.07-beta
+-- Project: Looks Better On You r16
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-15T16:06:00Z
+-- Last Modified: 2012-03-18T05:32:23Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
@@ -10,7 +10,7 @@
 -- ****************************************
 
 -- **Debugging
-local DEBUG = nil
+local DEBUG = false
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
 
 -- **Set up for future localization --not much to localize, though, I must say.
@@ -74,6 +74,21 @@ local noTransmogInvSlots = {
    INVSLOT_TABARD,
 }
 
+local visibleNoWepInvSlots = {
+   INVSLOT_BODY,
+   INVSLOT_TABARD,
+   INVSLOT_HEAD,
+   INVSLOT_SHOULDER,
+   INVSLOT_CHEST,
+   INVSLOT_WAIST,
+   INVSLOT_LEGS,
+   INVSLOT_FEET,
+   INVSLOT_WRIST,
+   INVSLOT_HAND,
+   INVSLOT_BACK,
+}
+
+
 -- **Variables & Tables
 local events = {} --Object on which event handlers will be placed
 local lbDB, playerDB --Local references to saved variables table
@@ -124,12 +139,12 @@ local function setCurrentAlt(name, realm)
    if alt and alt.race and alt.sex then
       currentAlt.name = name
       currentAlt.realm = realm
-      if lbSideButton:IsShown() then 
+      if lbSideButton:IsVisible() then 
          lbSideButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
          lbSideButton:SetChecked(not altIsPlayer())
          lbSideName:SetText(name)
       end
-      if lbTopButton:IsShown() then
+      if lbTopButton:IsVisible() then
          lbTopButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
          lbTopButton:SetChecked(not altIsPlayer())
          lbTopName:SetText(name)
@@ -158,21 +173,21 @@ local function slashCmdParser(name)
          listSavedAlts()
       elseif name == "reset" then
          setCurrentAlt(UnitName("player"))
-         if DressUpFrame:IsShown() then
+         if DressUpFrame:IsVisible() then
             DressUpModel:SetUnit("player")
          end
-         if SideDressUpFrame:IsShown() then
+         if SideDressUpFrame:IsVisible() then
             SideDressUpModel:SetUnit("player")
          end
       else
          if setCurrentAlt(name) then
-            if not (DressUpFrame:IsShown() or SideDressUpFrame:IsShown()) then
+            if not (DressUpFrame:IsVisible() or SideDressUpFrame:IsVisible()) then
       			ShowUIPanel(DressUpFrame)
       		end
-            if DressUpFrame:IsShown() then
+            if DressUpFrame:IsVisible() then
                DressUpModel:SetUnit("player")
             end
-            if SideDressUpFrame:IsShown() then
+            if SideDressUpFrame:IsVisible() then
                SideDressUpModel:SetUnit("player")
             end
          end
@@ -190,23 +205,38 @@ local function loadAltDressup()
    if alt and alt.race and alt.sex then
       lbIsTryingOn = true --Prevent a loop in hooked TryOn function
       for _, model in pairs({DressUpModel, SideDressUpModel}) do
-         if model:IsShown() then      
+         if model:IsVisible() then      
             if altIsPlayer() then
                model:Dress()
             else
                model:SetCustomRace(raceID[string.upper(alt.race)], alt.sex - 2)
                model:Undress() --Must be after SetCustomRace
-               for _, item in pairs(alt.equip) do --Load the alts visible items
-                  if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
-                     --debug((GetItemInfo(item)))
+               for _, i in ipairs(visibleNoWepInvSlots) do --Load the alts visible items
+                  local item = alt.equip[i]
+                  if IsEquippableItem(item) then
                      model:TryOn("item:"..item)
                   end
+               end
+               --Model is very quirky when trying on weapons where the offhand 
+               --can be equipped in the main hand. To force the right weapon in
+               --as the mainhand, first try on a mainhand-only weapon.
+                local mh, oh = alt.equip[INVSLOT_MAINHAND], alt.equip[INVSLOT_OFFHAND]
+                if IsEquippableItem(mh) then 
+                  model:TryOn("item:23556")
+                  model:TryOn("item:"..mh)
+                end
+                if IsEquippableItem(oh) then 
+                  model:TryOn("item:"..oh)
+                end
+               --Special handling for hunters.
+               if alt.class == "HUNTER" and IsEquippableItem(alt.equip[INVSLOT_RANGED]) then
+                  model:TryOn("item:"..alt.equip[INVSLOT_RANGED])
                end
             end
             local list = (model == DressUpModel) and tryOnList or sideTryOnList
             for _, item in ipairs(list) do --Load any items that have been ctr-clicked already
                if IsEquippableItem(item) and not ((select(9, GetItemInfo(item))) == "INVTYPE_BAG") then
-                  --debug((GetItemInfo(item)))
+                  debug("Dressing from tryOnList: "..(GetItemInfo(item)))
                   model:TryOn("item:"..item)
                end
             end
@@ -380,7 +410,7 @@ local function addonInit()
       freshenItemData() --Loads item data for everything our alts have equipped
       SlashCmdList["LOOKSBETTER"] = slashCmdParser --Add Slash Commands
       SLASH_LOOKSBETTER1 = "/lboy"
-      events:RegisterEvent('UNIT_INVENTORY_CHANGED')
+      events:RegisterEvent('PLAYER_EQUIPMENT_CHANGED')
 end
                                                  
 
@@ -388,40 +418,131 @@ end
 -- *********** EVENT HANDLING *************
 -- ****************************************
 
-function events:PLAYER_LOGIN()
+function events:PLAYER_ENTERING_WORLD()
    addonInit() --Set up db and ui elements, cache item data, set hooks, set /cmd
-   self:UNIT_INVENTORY_CHANGED("player") --Trigger saving of equipped item information
+   events:SetTimedCallback(events.PLAYER_EQUIPMENT_CHANGED, 5)  --Trigger saving of equipped item information
    chatMsg(L["\"Looks Better On You!\" loaded."]) --Hello, world! ... or hello, player, anyhow
    chatMsg(L["  Click the tab at the top right of the Dressing Room to select and view Alts."])
-   self:UnregisterEvent('PLAYER_LOGIN')
-   self.PLAYER_LOGIN = nil
+   self:UnregisterEvent('PLAYER_ENTERING_WORLD')
+   self.PLAYER_ENTERING_WORLD = nil
 end   
 
-function events:UNIT_INVENTORY_CHANGED(unit)
+function events:PLAYER_EQUIPMENT_CHANGED(slot, hasItem)
 --Store any changes in this character's equipped items   
-   if unit == 'player' then
-      for _, i in ipairs(transmogInvSlots) do
-         --Store the item id for the visible item
+   --We do not actually track changes in helm/cloak visibility. We only check
+   --here.
+   debug("Entered PLAYER_EQUIPMENT_CHANGED")
+   local helm, cloak = ShowingHelm(), ShowingCloak() 
+   if (playerDB.helm ~= helm) or (playerDB.cloak ~= cloak) then
+      slot = nil --Force refresh of all items
+      playerDB.helm = helm
+      playerDB.cloak = cloak
+   end
+   for _, i in ipairs(transmogInvSlots) do
+      --Store the item id for the visible item
+      if (not slot) or (i == slot) and GetInventoryItemID("player", i) then
+         --Reason for GetInventoryItemID above is the GetTransmogrigySlotInfo
+         --WoW crash bug in Mac and 64-bit Windows clients 
          playerDB.equip[i] = (select(6, GetTransmogrifySlotInfo(i)))
       end
-      for _, i in ipairs(noTransmogInvSlots) do
-         --Store the item id for the actual item for shirt and tabard
-         playerDB.equip[i] = GetInventoryItemID("player", i) 
-      end
    end
+   for _, i in ipairs(noTransmogInvSlots) do
+      --Store the item id for the actual item for shirt and tabard
+      if (not slot) or (i == slot) then
+         playerDB.equip[i] = GetInventoryItemID("player", i)
+      end 
+   end
+   playerDB.equip[INVSLOT_HEAD] = helm and playerDB.equip[INVSLOT_HEAD] or nil
+   playerDB.equip[INVSLOT_BACK] = cloak and playerDB.equip[INVSLOT_BACK] or nil       
 end
+
 
 -- **Set up event handling frame
 --
 
 do
    local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
+   local callbacks = {}
+   local timeSinceStart = 0
+   
+   --No need for OnUpdate until a timer / trigger is set
+   eFrame:Hide()
+   
    --Registered events will be redirected to events:EVENT_NAME(...)
    eFrame:SetScript("OnEvent", function(self, event, ...)
          events[event](events, ...)
       end)
-   eFrame:RegisterEvent("PLAYER_LOGIN")
+   eFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
+   local function OnUpdate(self, elapsed)
+      timeSinceStart = timeSinceStart + elapsed
+      for handle, tEvent in pairs(callbacks) do 
+         local data = tEvent.data 
+         if (tEvent.check and tEvent.check(timeSinceStart - tEvent.eventStart, data)) then
+            debug("We are now trying to execute the action for " .. tEvent.name)
+            tEvent.action(data)
+            if (not tEvent.repeating) then
+               callbacks[handle] = nil
+               if not next(callbacks) then
+                  eFrame:Hide()
+               end
+            end
+         end
+      end
+   end
+   eFrame:SetScript("OnUpdate", OnUpdate)
+   
+   function events:SetTriggeredCallback(eName, check, action, data, repeating)
+      debug("Entered SetTriggeredCallback")
+      if (type(check) ~= "function" or type(action) ~= "function") then
+         return
+      else
+         debug("We are setting up event : " .. eName)
+         --if repeating then Debug("Event " .. eName .. " is repeating") end
+         local tEvent = {
+            eventStart = timeSinceStart,
+            name = eName,
+            check = check,
+            action = action,
+            data = data,
+            repeating = repeating,
+         }
+         local handle = {}
+         callbacks[handle] = tEvent
+         eFrame:Show()
+         return handle
+      end                     
+   end
+
+   function events:SetTimedCallback(func, delay, data)
+      local check = function(elapsed)
+      	if (elapsed > delay) then
+      		return true
+      	end
+      end
+      return events:SetTriggeredCallback("generic_timer", check, func, data)  
+   end
+   
+   function events:CancelTriggeredCallback(handle)
+      if (type(index) == "string") then
+         -- What, you can't be bothered to store the index?
+         for h, tEvent in pairs(callbacks) do
+            if (tEvent.name == index) then
+               handle = h
+               break
+            end
+         end
+      end
+      if (callbacks and handle and callbacks[handle]) then
+         --Debug("Canceling timed event : " .. callbacks[index].name)
+         callbacks[handle] = nil
+         if not next(callbacks) then
+            eFrame:Hide()
+         end
+      end
+   end
+   events.CancelTimedCallback = CancelTriggeredCallback
+   
    --Since the handlers are on the 'events' object, lets make registering intuitive
    function events:RegisterEvent(...)
       eFrame:RegisterEvent(...)
@@ -429,5 +550,5 @@ do
    
    function events:UnregisterEvent(...)
       eFrame:UnregisterEvent(...)
-   end
+   end 
 end
