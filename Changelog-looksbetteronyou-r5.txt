@@ -1,4 +1,14 @@
 ------------------------------------------------------------------------
+r5 | msaint | 2012-03-12 01:14:55 +0000 (Mon, 12 Mar 2012) | 1 line
+Changed paths:
+   A /trunk/Images
+   A /trunk/Images/BL_DressUpFrameTab.blp
+   M /trunk/LooksBetterOnYou.lua
+   M /trunk/LooksBetterOnYou.toc
+   A /trunk/LooksBetterOnYou.xml
+
+Added name tab to top right of DressUpFrame showing the name of the character currently shown.  This button will be used to open character selection.
+------------------------------------------------------------------------
 r4 | msaint | 2012-03-11 18:55:26 +0000 (Sun, 11 Mar 2012) | 1 line
 Changed paths:
    M /trunk/LooksBetterOnYou.lua

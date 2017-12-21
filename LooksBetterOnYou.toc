@@ -2,11 +2,12 @@
 ## Title: Looks Better On You
 ## Notes: See your alts in the dressing room. 
 ## Author: msaint
-## Version: r4
+## Version: r5
 ## SavedVariables: LooksBetterDB
-## X-Curse-Packaged-Version: r4
+## X-Curse-Packaged-Version: r5
 ## X-Curse-Project-Name: LooksBetterOnYou
 ## X-Curse-Project-ID: looksbetteronyou
 ## X-Curse-Repository-ID: wow/looksbetteronyou/mainline
 
+LooksBetterOnYou.xml
 LooksBetterOnYou.lua

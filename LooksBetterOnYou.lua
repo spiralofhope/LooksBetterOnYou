@@ -1,12 +1,12 @@
--- Project: Looks Better On You r4
+-- Project: Looks Better On You r5
 -- File: LooksBetterOnYou.lua
--- Last Modified: 2012-03-11T18:55:26Z
+-- Last Modified: 2012-03-12T01:14:55Z
 -- Author: msaint
 -- Desc: Lets your alts use the dressing room.
 
 
 local OUR_NAME = "LooksBetterOnYou"
-local OUR_VERSION = string.match("r4", "([%d\.]+)")
+local OUR_VERSION = string.match("r5", "([%d\.]+)")
 OUR_VERSION = tonumber(OUR_VERSION) or 2
 local DEBUG = true
 local debug = DEBUG and function(s) DEFAULT_CHAT_FRAME:AddMessage("LBOY: "..s, 1, 0, 0) end or function() return end  
@@ -70,7 +70,7 @@ local GetItemInfo = GetItemInfo
 local events = {}
 local lbDB, playerDB
 local eFrame = LooksBetterEventFrame or CreateFrame("Frame", "LooksBetterEventFrame", UIParent)
--- local lbButton = LooksBetterButton or CreateFrame("Button", "LooksBetterButton", UIParent)
+local lbButton
 local currentAlt = {realm = GetRealmName(), name = UnitName('player')}
 
 -- **Local functions
@@ -100,6 +100,7 @@ local function initDB()
    lbDB[realm][player] = lbDB[realm][player] or {race=(select(2, UnitRace('player'))) , sex=UnitSex('player') , class=(select(2, UnitClass('player'))), equip={}}
    playerDB = lbDB[realm][player] 
 end
+
 
 local function altIsPlayer()
    return currentAlt.name == UnitName("player") and currentAlt.realm == GetRealmName()
@@ -137,6 +138,9 @@ local function setCurrentAlt(name, realm)
    if alt and alt.race and alt.sex then
       currentAlt.name = name
       currentAlt.realm = realm
+      lbButton.tooltip = L["Currently viewing "]..name..L[" in the Dressing Room.  Click to select another character"]
+      LooksBetterButtonName:SetText(name)
+      lbButton:SetChecked(not altIsPlayer())
       return name, realm
    end
 end
@@ -161,11 +165,34 @@ local function slashCmdParser(name)
    end
 end
 
+
 local function onDress()
+-- Hook to keep model of currentAlt (see ADDON_LOADED)
    debug("onDress was called!")
    if not altIsPlayer() then
       lb:loadAltDressup()
    end
+end
+
+-- **Button functionality
+local function lbButtonOnClick()
+   lbButton:SetChecked(not altIsPlayer())
+   -- Now we need a the ability to select from a list
+end
+
+local function lbButtonOnShow()
+   debug("Called lbButtonOnShow")
+   lbButton:SetChecked(not altIsPlayer())
+   LooksBetterButtonName:SetText(currentAlt.name)
+end
+
+local function initButton()
+   debug("Initializing Button")
+   lbButton = LooksBetterButton -- or CreateFrame("Button", "LooksBetterButton", DressUpFrame)
+   --lbButton:SetNormalTexture("\\Interface\\Icons\\Spell_Magic_LesserInvisibility")
+   lbButton:SetScript("OnShow", lbButtonOnShow)
+   lbButton:SetScript("OnClick", lbButtonOnClick)
+   lbButton.tooltip = L["Currently viewing "]..currentAlt.name..L[" in the Dressing Room.\nClick to select another character."]
 end
 
 -- **Event handling and triggers
@@ -176,7 +203,8 @@ function events:ADDON_LOADED(...)
       self:RegisterEvent("PLAYER_LOGIN")
       hooksecurefunc(DressUpModel, "SetUnit", onDress)
       hooksecurefunc(DressUpModel, "Dress", onDress)      
-      initDB()   
+      initDB()
+      initButton()
       -- Make sure the client loads item data for everything our alts have equipped
       freshenItemData()
       -- Add Slash Commands
@@ -308,6 +336,4 @@ function lb:loadAltDressup(name, realm)
    end
 end
 
--- LooksBetter:lbButton_OnClick()
--- 
--- end
+
